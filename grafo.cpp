@@ -43,11 +43,10 @@ int main (int argc,char const *argv []){
         for (int j = 0; j < 6; j++)
         {
             cout << " " << grafo[i][j];
-            /* code */
         }
         cout << endl;
-        /* code */
     }
+    
     
     
 
