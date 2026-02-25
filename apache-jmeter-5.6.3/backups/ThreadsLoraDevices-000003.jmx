@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+        <collectionProp name="Arguments.arguments"/>
+      </elementProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="ThreadsLoraDevices">
+        <intProp name="ThreadGroup.num_threads">1</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <intProp name="LoopController.loops">-1</intProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="JSR223 PreProcessor">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.* 
+import java.nio.ByteBuffer 
+import java.util.Base64
+
+def random = new Random()
+
+def payload = new ByteArrayOutputStream()
+
+// Campo A - Pressão 
+float pressure = 980 + random.nextFloat() * (1030 - 980) 
+int pressureLpp = (int)(pressure * 10) 
+payload.write([0x00, 0x73] as byte[]) 
+payload.write(ByteBuffer.allocate(2).putShort((short)pressureLpp).array())
+
+// Campo B - Temperatura 
+float temp = 20 + random.nextFloat() * (35 - 20) 
+int tempLpp = (int)(temp * 10) 
+payload.write([0x01, 0x67] as byte[]) 
+payload.write(ByteBuffer.allocate(2).putShort((short)tempLpp).array())
+
+// Campo C - Umidade float 
+humidity = 30 + random.nextFloat() * (80 - 30) 
+int humidityLpp = (int)(humidity * 2) 
+payload.write([0x02, 0x68] as byte[]) 
+payload.write((byte)humidityLpp)
+
+// Campo D fixo 
+payload.write([0x03, 0x00, 0x64] as byte[])
+
+// Campo E fixo 
+payload.write([0x04, 0x01, 0x00] as byte[])
+
+// Campo F fixo 
+payload.write([0x05, 0x01, 0xD7] as byte[])
+
+def encoded = Base64.encoder.encodeToString(payload.toByteArray())
+
+vars.put(&quot;payload_raw&quot;, encoded) 
+vars.put(&quot;dev_id&quot;, &quot;myDevice${ctx.getThreadNum()}&quot;) 
+vars.put(&quot;counter&quot;, vars.get(&quot;counter&quot;) ?: &quot;0&quot;)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <org.apache.jmeter.protocol.mqtt.sampler.PublisherSampler guiclass="org.apache.jmeter.protocol.mqtt.control.gui.MQTTPublisherGui" testclass="org.apache.jmeter.protocol.mqtt.sampler.PublisherSampler" testname="MQTT Publisher">
+          <stringProp name="mqtt.broker.url">tcp://10.81.24.151:1883</stringProp>
+          <stringProp name="mqtt.client.id"></stringProp>
+          <stringProp name="mqtt.topic.name">v3/demoTTN/devices/${dev_id}/up</stringProp>
+          <boolProp name="mqtt.message.retained">false</boolProp>
+          <boolProp name="mqtt.clean.session">false</boolProp>
+          <stringProp name="mqtt.keep.alive">0</stringProp>
+          <stringProp name="mqtt.auth.username">admin</stringProp>
+          <stringProp name="mqtt.auth.password">password</stringProp>
+          <stringProp name="mqtt.qos">mqtt_at_most_once</stringProp>
+          <stringProp name="mqtt.client.type">mqtt_blocking_client</stringProp>
+          <stringProp name="mqtt.message.input.type">mqtt_message_input_type_text</stringProp>
+          <stringProp name="mqtt.message.input.value">{
+  &quot;app_id&quot;: &quot;demoTTN&quot;,
+  &quot;dev_id&quot;: &quot;${dev_id}&quot;,
+  &quot;hardware_serial&quot;: &quot;000000000000000&quot;,
+  &quot;port&quot;: 1,
+  &quot;counter&quot;: ${__counter(TRUE)},
+  &quot;is_retry&quot;: false,
+  &quot;confirmed&quot;: false,
+  &quot;payload_raw&quot;: &quot;${payload_raw}&quot;
+}</stringProp>
+          <stringProp name="TestPlan.comments">Meu MQTT Writer</stringProp>
+        </org.apache.jmeter.protocol.mqtt.sampler.PublisherSampler>
+        <hashTree/>
+        <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="JSR223 PostProcessor">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">int c = (vars.get(&quot;counter&quot;) ?: &quot;0&quot;) as int 
+c++ 
+vars.put(&quot;counter&quot;, c.toString</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PostProcessor>
+        <hashTree/>
+        <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Constant Timer">
+          <stringProp name="ConstantTimer.delay">1000</stringProp>
+        </ConstantTimer>
+        <hashTree/>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
