@@ -1,3 +1,164 @@
+Para replicar **a parte Experimental** do artigo no JMeter, você precisa reproduzir exatamente: **(1) configuração do teste**, **(2) 3 cenários (sentilo-input / sentilo-output / elastic-output)**, **(3) 6 cargas (100…1000 rps)** e **(4) a ordem em “batches” + repetições + restart dos containers**.
+
+Abaixo vai o passo-a-passo bem prático.
+
+---
+
+## 1) Configuração do teste (igual ao artigo)
+
+No **Thread Group** (ou “Concurrency Thread Group”, se você usar Plugins):
+
+* **Number of Threads (users): 30**
+* **Ramp-up: 20s**
+* **Duration: 60s (1 minuto)**
+* **Timeout / max response time: 30s** (isso no artigo é “máximo tempo de resposta”, então configure timeouts de conexão/leitura e/ou use Assertion/Timeout do sampler)
+
+Isso está descrito no artigo: 30 threads, ramp-up 20s, teste 1 minuto, max response time 30s. 
+
+---
+
+## 2) Os 3 cenários que você tem que montar
+
+O artigo simula 3 “funcionalidades”: 
+
+### A) **sentilo-input (inserção)**
+
+* É um **HTTP request** com **JSON no body**
+* Tem um header com token **`IDENTITY KEY`** (pego na interface web do Sentilo) 
+* O payload simula **22 observações** (sensor id + valor etc.) 
+* Tamanho médio: request ~5KB, response ~157B 
+
+**No JMeter:**
+
+* Adicione um **HTTP Header Manager** com: `IDENTITY_KEY: <seu_token>` (ou exatamente o nome do header que o Sentilo espera; o artigo chama de “IDENTITY KEY”) 
+* Adicione um **HTTP Request** (método POST) apontando pro endpoint de ingestão do Sentilo do seu ambiente (URL/path você pega na doc/config do Sentilo).
+* Body Data: JSON (com as ~22 medidas).
+
+### B) **sentilo-output (consulta via Sentilo/Redis)**
+
+* Faz **GET** para consultar **as últimas 20 observações** 
+* Usa **path e query parameters** na URL 
+* Também manda **`IDENTITY KEY`** no header 
+* Request ~394B, response ~31KB 
+
+**No JMeter:**
+
+* HTTP Request GET com Parameters (Query params) e/ou path montado.
+* Mesmo Header Manager do token.
+
+### C) **elastic-output (consulta no Elasticsearch)**
+
+* Também é **GET**, mas com **JSON body** contendo query em **Query DSL** 
+* Header de auth: **`Authorization: ...`** 
+* Consulta **as últimas 30 observações** 
+* Request ~454B, response ~1KB 
+
+**No JMeter:**
+
+* HTTP Request GET para o endpoint do Elasticsearch (ou “via Sentilo” como no seu setup).
+* Marque “Send body with GET requests” (depende do sampler/versão).
+* Body Data: Query DSL em JSON.
+* Header Manager com Authorization.
+
+---
+
+## 3) Ordem de execução + cargas (o “batch” do artigo)
+
+O artigo executa sempre nessa ordem:
+**sentilo-input → elastic-output → sentilo-output** 
+
+E testa 6 cargas: **100, 200, 300, 400, 500 e 1000 rps**, cada uma **3 vezes**, e depois de cada “set” reinicia os containers. 
+
+### Como montar no JMeter (recomendado)
+
+Crie **3 Thread Groups** (um para cada cenário) e rode em “batches” assim:
+
+1. Rode **somente sentilo-input** por 1 minuto (na carga X rps)
+2. Rode **somente elastic-output** por 1 minuto (na mesma carga X rps)
+3. Rode **somente sentilo-output** por 1 minuto (na mesma carga X rps)
+
+Depois repete 3 vezes e reinicia containers ao final do set.
+
+> Dá para fazer isso dentro de um único Test Plan usando “setUp Thread Group / tearDown Thread Group” e/ou habilitar/desabilitar Thread Group, mas na prática o mais simples é salvar 3 JMX (um por cenário) e executar em sequência no terminal.
+
+---
+
+## 4) Como controlar “rps” (100…1000) no JMeter
+
+Você precisa de um **Timer** que controle throughput.
+
+### Opção simples (nativo): Constant Throughput Timer
+
+Ele trabalha em **amostras por minuto**:
+
+* 100 rps = 6000 /min
+* 200 rps = 12000 /min
+* 300 rps = 18000 /min
+* 400 rps = 24000 /min
+* 500 rps = 30000 /min
+* 1000 rps = 60000 /min
+
+Coloque o **Constant Throughput Timer** dentro do Thread Group do cenário e ajuste esse valor.
+
+### Opção mais “certinha” (plugins): Throughput Shaping Timer
+
+Se você já está usando plugins, esse timer costuma ser mais previsível para RPS fixo.
+
+---
+
+## 5) Como coletar as métricas iguais às do artigo
+
+O artigo mede: **tempo médio de resposta, taxa de falhas, e throughput atingido**. 
+
+No JMeter, adicione:
+
+* **Summary Report**
+* **Aggregate Report**
+* (GUI) **View Results Tree** só pra depurar (em teste pesado, evite)
+* Em modo headless, salve um **.jtl** e depois gere relatório HTML.
+
+Exemplo headless (por cenário):
+
+```bash
+jmeter -n -t sentilo-input.jmx  -l input_100rps_run1.jtl
+jmeter -n -t elastic-output.jmx -l elastic_100rps_run1.jtl
+jmeter -n -t sentilo-output.jmx -l output_100rps_run1.jtl
+```
+
+---
+
+## 6) “Onde eu vejo o counter/saída?” (no seu caso)
+
+Como você montou variáveis no JMeter:
+
+* Para ver **variáveis** (tipo `${counter}`), adicione um **Debug Sampler** + **View Results Tree** (em testes leves) e veja a seção **JMeter Variables**.
+* Para “printar” no log: no seu JSR223 (Groovy) use:
+
+  ```groovy
+  log.info("counter=" + vars.get("counter"))
+  ```
+
+  A saída vai para o **jmeter.log**.
+
+---
+
+## 7) O que você precisa me dizer pra eu te passar o JMX pronto (sem adivinhar endpoint)
+
+Só pra eu não inventar URL/path:
+
+1. URL base do Sentilo (ex: `http://...:8081`)
+2. Endpoint exato do **POST de ingestão** e do **GET últimas 20 obs**
+3. Seu **IDENTITY KEY** (ou pelo menos o nome do header esperado)
+4. URL do Elasticsearch + formato do Authorization (Basic? Bearer?) e o índice/query DSL que você quer
+
+Se você colar esses 4 itens, eu te devolvo a estrutura certinha (árvore do Test Plan) já com os Timers pra bater 100…1000 rps no mesmo padrão do artigo.
+
+
+
+
+
+
+
 2026-02-25 16:16:41,900 INFO o.a.j.s.FileServer: Default base='/home/pedro-mujica'
 2026-02-25 16:16:41,903 INFO o.a.j.g.a.Load: Loading file: /home/pedro-mujica/projects/ThreadsLoraDevices.jmx
 2026-02-25 16:16:41,903 INFO o.a.j.s.FileServer: Set new base='/home/pedro-mujica/projects'
