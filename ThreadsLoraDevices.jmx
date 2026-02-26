@@ -13,8 +13,7 @@
         <intProp name="ThreadGroup.num_threads">30</intProp>
         <intProp name="ThreadGroup.ramp_time">20</intProp>
         <longProp name="ThreadGroup.duration">60</longProp>
-        <longProp name="ThreadGroup.delay">1</longProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">false</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
@@ -23,7 +22,7 @@
         </elementProp>
       </ThreadGroup>
       <hashTree>
-        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="JSR223 PreProcessor" enabled="true">
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="JSR223 PreProcessor">
           <stringProp name="cacheKey">true</stringProp>
           <stringProp name="filename"></stringProp>
           <stringProp name="parameters"></stringProp>
@@ -73,7 +72,7 @@ vars.put(&quot;hardware_serial&quot;, serial)</stringProp>
           <stringProp name="scriptLanguage">groovy</stringProp>
         </JSR223PreProcessor>
         <hashTree/>
-        <org.apache.jmeter.protocol.mqtt.sampler.PublisherSampler guiclass="org.apache.jmeter.protocol.mqtt.control.gui.MQTTPublisherGui" testclass="org.apache.jmeter.protocol.mqtt.sampler.PublisherSampler" testname="MQTT Publisher" enabled="true">
+        <org.apache.jmeter.protocol.mqtt.sampler.PublisherSampler guiclass="org.apache.jmeter.protocol.mqtt.control.gui.MQTTPublisherGui" testclass="org.apache.jmeter.protocol.mqtt.sampler.PublisherSampler" testname="MQTT Publisher">
           <stringProp name="mqtt.broker.url">tcp://10.81.24.151:1883</stringProp>
           <stringProp name="mqtt.client.id"></stringProp>
           <stringProp name="mqtt.topic.name">v3/demoTTN/devices/${dev_id}/up</stringProp>
@@ -98,13 +97,14 @@ vars.put(&quot;hardware_serial&quot;, serial)</stringProp>
           <stringProp name="TestPlan.comments">Meu MQTT Writer</stringProp>
         </org.apache.jmeter.protocol.mqtt.sampler.PublisherSampler>
         <hashTree/>
-        <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="JSR223 PostProcessor" enabled="true">
+        <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="JSR223 PostProcessor">
           <stringProp name="cacheKey">true</stringProp>
           <stringProp name="filename"></stringProp>
           <stringProp name="parameters"></stringProp>
           <stringProp name="script">int c = (vars.get(&quot;counter&quot;) ?: &quot;0&quot;) as int
 c++
-vars.put(&quot;counter&quot;, c.toString())</stringProp>
+vars.put(&quot;counter&quot;, c.toString())
+log.info(&quot;counter=&quot; + vars.get(&quot;counter&quot;))</stringProp>
           <stringProp name="scriptLanguage">groovy</stringProp>
         </JSR223PostProcessor>
         <hashTree/>
