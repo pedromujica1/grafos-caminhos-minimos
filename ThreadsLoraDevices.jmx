@@ -63,7 +63,7 @@ def payloadBase64 = Base64.encoder.encodeToString(payload.toByteArray())
 vars.put(&quot;payload_raw&quot;, payloadBase64)
 
 //Device por thread
-def devId = &quot;myDevice&quot; + ctx.getThreadNum()
+def devId = &quot;myDevice0&quot;
 vars.put(&quot;dev_id&quot;, devId)
 
 //
