@@ -1,3 +1,15 @@
+SELECT
+recvtime::timestamp AS "time",
+attrvalue::numeric AS "pressure"
+FROM
+openiot.airquality_urn_weatherobserved_mydevice0_weatherobserved
+WHERE
+attrtype = 'Number'
+AND attrname = 'pressure'
+AND attrvalue ~ '^[0-9]+(\.[0-9]+)?$'
+ORDER BY recvtime;
+
+
 Para replicar **a parte Experimental** do artigo no JMeter, você precisa reproduzir exatamente: **(1) configuração do teste**, **(2) 3 cenários (sentilo-input / sentilo-output / elastic-output)**, **(3) 6 cargas (100…1000 rps)** e **(4) a ordem em “batches” + repetições + restart dos containers**.
 
 Abaixo vai o passo-a-passo bem prático.
